@@ -1,1 +1,329 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Mavi Banner – Guardian v1 💙</title>
+<style>
+  :root{
+    --ui-bg:#0b1020; --ui-fg:#dfe7ff; --glow:#4da6ff; --accent:#7ec3ff;
+    --orb-core:#4da6ff; --orb-edge:#002255;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{
+    margin:0; background: radial-gradient(1200px 600px at 50% -20%,
+       #0d1638 0%, #0a1130 40%, #070b1f 70%, #040714 100%);
+    color:var(--ui-fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    overflow:hidden;
+  }
+  /* Üst mini panel */
+  .hud{
+    position:fixed; top:12px; left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; padding:8px 10px; border-radius:14px;
+    background:rgba(10,14,30,.55); backdrop-filter: blur(6px);
+    box-shadow:0 6px 20px rgba(0,0,0,.35), inset 0 0 0 1px rgba(100,150,255,.18);
+    z-index:5; user-select:none
+  }
+  .btn{
+    padding:8px 12px; border-radius:10px; border:1px solid rgba(120,160,255,.25);
+    color:var(--ui-fg); background:linear-gradient(180deg, rgba(18,25,55,.75), rgba(10,15,30,.75));
+    cursor:pointer; font-weight:600; letter-spacing:.2px; transition:.15s transform,.2s box-shadow;
+  }
+  .btn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(77,166,255,.22)}
+  .badge{ padding:8px 10px; border-radius:10px; background:rgba(77,166,255,.15); border:1px solid rgba(77,166,255,.35)}
+  .sep{width:1px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.15),transparent)}
+  /* Alt ipuçları */
+  .tips{
+    position:fixed; left:12px; bottom:12px; right:12px; display:flex; gap:10px; flex-wrap:wrap;
+    color:#cfe3ff; font-size:12.5px; line-height:1.4; z-index:4; opacity:.9
+  }
+  .tip{ padding:8px 10px; border-radius:10px; background:rgba(10,18,40,.55); border:1px dashed rgba(120,160,255,.3)}
+  /* Tema seçici paneli */
+  .panel{
+    position:fixed; right:12px; top:60px; width:220px; padding:12px; border-radius:14px;
+    background:rgba(10,14,30,.6); backdrop-filter:blur(6px);
+    border:1px solid rgba(120,160,255,.2); color:#e8f2ff; z-index:6; display:none; gap:8px;
+  }
+  .panel h3{margin:0 0 8px 0; font-size:14px; opacity:.9}
+  .opt{display:flex; gap:8px; flex-wrap:wrap}
+  .chip{cursor:pointer; padding:7px 10px; border-radius:10px; border:1px solid rgba(120,160,255,.28)}
+  .chip.active{ background:rgba(77,166,255,.2); border-color:rgba(77,166,255,.55)}
+  /* “Companion” dokunuş animasyonu */
+  .tap{
+    position:fixed; width:10px; height:10px; border-radius:50%;
+    background:#7ec3ff; box-shadow:0 0 20px #7ec3ff88, 0 0 40px #7ec3ff55; pointer-events:none; z-index:3;
+    animation:pop .6s ease-out forwards;
+  }
+  @keyframes pop{0%{transform:scale(.6); opacity:.9} 60%{transform:scale(4); opacity:.4} 100%{transform:scale(6); opacity:0}}
+  canvas{position:fixed; inset:0; display:block}
+</style>
+</head>
+<body>
+  <!-- Üst HUD -->
+  <div class="hud" id="hud">
+    <div class="badge">Guardian v1 💙</div>
+    <div class="sep"></div>
+    <button class="btn" id="modeBtn" title="Mod değiştir">Mod: Takip</button>
+    <button class="btn" id="burstBtn" title="Yıldız yağmuru">Yıldız Yağmuru ✨</button>
+    <button class="btn" id="panelBtn" title="Tema / Ayarlar">Ayarlar ⚙️</button>
+  </div>
 
+  <!-- Ayar Paneli -->
+  <div class="panel" id="panel">
+    <h3>Tema</h3>
+    <div class="opt" id="themes">
+      <div class="chip active" data-theme="ocean">Ocean</div>
+      <div class="chip" data-theme="neon">Neon</div>
+      <div class="chip" data-theme="space">Space</div>
+      <div class="chip" data-theme="sunrise">Sunrise</div>
+    </div>
+    <h3 style="margin-top:10px">Parlaklık</h3>
+    <input id="glow" type="range" min="0" max="1" step="0.01" value="0.8" style="width:100%">
+    <h3 style="margin-top:10px">İz Uzunluğu</h3>
+    <input id="trail" type="range" min="0.6" max="0.98" step="0.01" value="0.9" style="width:100%">
+  </div>
+
+  <!-- İpuçları -->
+  <div class="tips">
+    <div class="tip">🖱️ Fareyi sürükle / 📱 Parmağını gezdir → **Mavi Orb** seni takip eder.</div>
+    <div class="tip">👆 Tek dokun / tıkla → **orb yanıt verir**. ✌️ İki parmak → **yıldız patlaması**.</div>
+    <div class="tip">🔁 Mod: <b>Takip</b> / <b>Koruma (Orbit)</b> → üstten değiştir.</div>
+    <div class="tip">⚙️ Tema ve ışık gücü → **Ayarlar**.</div>
+  </div>
+
+  <canvas id="fx"></canvas>
+
+<script>
+(() => {
+  const canvas = document.getElementById('fx');
+  const ctx = canvas.getContext('2d');
+  let W = canvas.width = innerWidth;
+  let H = canvas.height = innerHeight;
+
+  // ---- Settings (persisted) ----
+  const store = {
+    set(k,v){ try{ localStorage.setItem('guardian:'+k, JSON.stringify(v)) }catch{} },
+    get(k,def){ try{ const v=localStorage.getItem('guardian:'+k); return v?JSON.parse(v):def }catch{ return def } }
+  };
+  const settings = {
+    mode: store.get('mode','follow'),         // 'follow' | 'orbit'
+    theme: store.get('theme','ocean'),
+    glow: store.get('glow',0.8),
+    trail: store.get('trail',0.9)
+  };
+
+  // ---- Theme presets ----
+  const themes = {
+    ocean: {
+      bg: ['#0d1638','#0a1130','#070b1f','#040714'],
+      orbCore:'#4da6ff', orbEdge:'#002255', spark:'#7ec3ff',
+    },
+    neon: {
+      bg: ['#0f042b','#1c0739','#100423','#070318'],
+      orbCore:'#00ffd9', orbEdge:'#003d35', spark:'#66ffe8',
+    },
+    space:{
+      bg:['#030714','#050a1b','#02040c','#000000'],
+      orbCore:'#94b5ff', orbEdge:'#1b2f66', spark:'#e6f0ff',
+    },
+    sunrise:{
+      bg:['#160b28','#2a0f3d','#311245','#16081f'],
+      orbCore:'#ff7ad6', orbEdge:'#611a4a', spark:'#ffd2f1',
+    }
+  };
+
+  function applyTheme(name){
+    const t = themes[name] || themes.ocean;
+    document.body.style.background = `radial-gradient(1200px 600px at 50% -20%,
+      ${t.bg[0]} 0%, ${t.bg[1]} 40%, ${t.bg[2]} 70%, ${t.bg[3]} 100%)`;
+    css.orbCore = t.orbCore;
+    css.orbEdge = t.orbEdge;
+    css.spark = t.spark;
+    [...document.querySelectorAll('.chip')].forEach(c=>{
+      c.classList.toggle('active', c.dataset.theme===name);
+    });
+    settings.theme=name; store.set('theme',name);
+  }
+
+  // ---- UI refs ----
+  const modeBtn = document.getElementById('modeBtn');
+  const burstBtn = document.getElementById('burstBtn');
+  const panelBtn = document.getElementById('panelBtn');
+  const panel = document.getElementById('panel');
+  const glowRange = document.getElementById('glow');
+  const trailRange = document.getElementById('trail');
+
+  document.getElementById('themes').addEventListener('click',e=>{
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    applyTheme(chip.dataset.theme);
+  });
+
+  panelBtn.onclick = () => { panel.style.display = panel.style.display==='none' || !panel.style.display ? 'grid':'none'; }
+  glowRange.oninput = e => { settings.glow = +e.target.value; store.set('glow',settings.glow); }
+  trailRange.oninput = e => { settings.trail = +e.target.value; store.set('trail',settings.trail); }
+
+  function toggleMode(){
+    settings.mode = settings.mode==='follow' ? 'orbit' : 'follow';
+    modeBtn.textContent = 'Mod: ' + (settings.mode==='follow'?'Takip':'Koruma');
+    store.set('mode', settings.mode);
+  }
+  modeBtn.onclick = toggleMode;
+
+  // ---- Physics / Particles ----
+  const css = { orbCore:'#4da6ff', orbEdge:'#002255', spark:'#7ec3ff' };
+  applyTheme(settings.theme);
+  glowRange.value = settings.glow;
+  trailRange.value = settings.trail;
+  modeBtn.textContent = 'Mod: ' + (settings.mode==='follow'?'Takip':'Koruma');
+
+  const pointer = { x: W*0.5, y: H*0.5, active:false };
+  const orb = {
+    x: W*.5, y:H*.5, vx:0, vy:0, r:32,
+    orbitAngle:0, orbitR:90
+  };
+  const sparks = [];
+  const stars = makeStars(160);
+
+  function makeStars(n){
+    const arr=[];
+    for(let i=0;i<n;i++){
+      arr.push({
+        x: Math.random()*W, y:Math.random()*H*0.9,
+        z: Math.random()*0.6 + 0.4,
+        a: Math.random()*Math.PI*2,
+        tw: Math.random()*0.8 + 0.2
+      });
+    }
+    return arr;
+  }
+
+  function addSparks(x,y,amount=60,spread=2.6, speed=2.8){
+    for(let i=0;i<amount;i++){
+      const a = Math.random()*Math.PI*2;
+      const m = (Math.random()*speed)+0.4;
+      sparks.push({ x,y, vx:Math.cos(a)*m, vy:Math.sin(a)*m, life:1, size: Math.random()*2+0.6 });
+    }
+  }
+
+  // star shower
+  function burst(){
+    addSparks(orb.x, orb.y, 120, 3.2, 3.6);
+    flash = 1;
+  }
+  burstBtn.onclick = burst;
+
+  // Tap ripple
+  function ripple(x,y){
+    const el = document.createElement('div');
+    el.className = 'tap'; el.style.left = (x-5)+'px'; el.style.top = (y-5)+'px';
+    document.body.appendChild(el); setTimeout(()=>el.remove(),650);
+  }
+
+  // Input
+  function setPointer(e){
+    if(e.touches && e.touches.length){
+      pointer.x = e.touches[0].clientX;
+      pointer.y = e.touches[0].clientY;
+      pointer.active = true;
+      if(e.touches.length===2) burst();
+    }else{
+      pointer.x = e.clientX; pointer.y = e.clientY; pointer.active = true;
+    }
+  }
+  addEventListener('mousemove', setPointer, {passive:true});
+  addEventListener('touchstart', e=>{ setPointer(e); ripple(pointer.x,pointer.y); }, {passive:true});
+  addEventListener('touchmove', setPointer, {passive:true});
+  addEventListener('touchend', ()=>pointer.active=false, {passive:true});
+  addEventListener('mousedown', e=>{ setPointer(e); ripple(pointer.x,pointer.y); });
+  addEventListener('mouseup', ()=>pointer.active=false);
+
+  // Resize
+  addEventListener('resize', ()=>{
+    W = canvas.width = innerWidth; H = canvas.height = innerHeight;
+    // yıldızları tekrar üret, orantı korunsun
+    stars.splice(0, stars.length, ...makeStars(160));
+  });
+
+  // Anim loop
+  let flash = 0;
+  function tick(t){
+    requestAnimationFrame(tick);
+
+    // Trail “motion blur”
+    ctx.fillStyle = `rgba(5, 8, 20, ${1-settings.trail})`;
+    ctx.fillRect(0,0,W,H);
+
+    // background parallax stars
+    for(const s of stars){
+      s.a += 0.002 + (1-s.z)*0.002;
+      const tw = (Math.sin(s.a*3)*.5+.5)*s.tw;
+      const y = s.y + Math.sin(s.a)*3*s.z;
+      ctx.globalAlpha = .35 + tw;
+      ctx.fillStyle = css.spark;
+      ctx.fillRect(s.x, y, 1.2+s.z*1.4, 1.2+s.z*1.4);
+    }
+    ctx.globalAlpha = 1;
+
+    // Companion physics
+    if(settings.mode==='follow'){
+      const dx = (pointer.x||W*0.5)-orb.x;
+      const dy = (pointer.y||H*0.5)-orb.y;
+      orb.vx += dx*0.012; orb.vy += dy*0.012;
+    }else{ // orbit mode
+      const cx = (pointer.x||W*0.5), cy=(pointer.y||H*0.5);
+      orb.orbitAngle += 0.03;
+      const tx = cx + Math.cos(orb.orbitAngle)*orb.orbitR;
+      const ty = cy + Math.sin(orb.orbitAngle)*orb.orbitR;
+      orb.vx += (tx-orb.x)*0.06; orb.vy += (ty-orb.y)*0.06;
+    }
+    // damping
+    orb.vx *= 0.86; orb.vy *= 0.86; orb.x += orb.vx; orb.y += orb.vy;
+
+    // soft bounds
+    if(orb.x<orb.r) { orb.vx+= (orb.r-orb.x)*0.08 }
+    if(orb.x>W-orb.r){ orb.vx-= (orb.x-(W-orb.r))*0.08 }
+    if(orb.y<orb.r) { orb.vy+= (orb.r-orb.y)*0.08 }
+    if(orb.y>H-orb.r){ orb.vy-= (orb.y-(H-orb.r))*0.08 }
+
+    // Draw sparks
+    for(let i=sparks.length-1;i>=0;i--){
+      const p=sparks[i]; p.x+=p.vx; p.y+=p.vy; p.vx*=0.985; p.vy*=0.985; p.life-=0.016;
+      if(p.life<=0 || p.x<0||p.x>W||p.y<0||p.y>H){ sparks.splice(i,1); continue; }
+      ctx.globalCompositeOperation='lighter';
+      ctx.globalAlpha = p.life*settings.glow;
+      ctx.fillStyle = css.spark;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+      ctx.globalCompositeOperation='source-over'; ctx.globalAlpha = 1;
+    }
+
+    // Orb glow / body
+    const grd = ctx.createRadialGradient(orb.x-orb.r*0.3, orb.y-orb.r*0.3, 2, orb.x, orb.y, orb.r*1.2);
+    grd.addColorStop(0, css.orbCore);
+    grd.addColorStop(1, css.orbEdge);
+    ctx.shadowBlur = 40 + settings.glow*60;
+    ctx.shadowColor = css.orbCore;
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(orb.x,orb.y,orb.r,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Halo
+    const haloR = orb.r*(1.6 + Math.sin(t/400)*0.06);
+    ctx.globalAlpha = 0.25 + settings.glow*0.35 + flash*0.25;
+    ctx.strokeStyle = css.orbCore;
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(orb.x,orb.y,haloR,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    flash *= 0.92;
+  }
+  requestAnimationFrame(tick);
+
+  // keyboard quick actions (desktop)
+  addEventListener('keydown', (e)=>{
+    if(e.key===' '){ e.preventDefault(); toggleMode(); }
+    if(e.key==='b' || e.key==='B'){ burst(); }
+    if(e.key==='h' || e.key==='H'){ panel.style.display = panel.style.display==='none' || !panel.style.display ? 'grid':'none'; }
+  });
+})();
+</script>
+</body>
+</html>
