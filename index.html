@@ -392,7 +392,7 @@ function sendMessage(){
 
 async function fetchAIResponse(prompt){
   addMessage("Yüklüyor...", "bot");
-  const apiKey = "__n8n_BLANK_VALUE_e5362baf-c777-4d57-a609-6eaf1f9e87f6"; // 🔑 buraya kendi OpenAI API keyini yaz
+  const apiKey = "e5362baf-c777-4d57-a609-6eaf1f9e87f6"; // 🔑 buraya kendi OpenAI API keyini yaz
   try{
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
