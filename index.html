@@ -92,7 +92,29 @@
   </div>
 
   <canvas id="fx"></canvas>
+<!-- Chat alanı -->
+<div id="chatBox" style="
+  position: fixed; bottom: 80px; left: 12px; right: 12px;
+  max-height: 45vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+  z-index: 10; font-size: 14px; line-height: 1.4;
+"></div>
 
+<!-- Mesaj yazma alanı -->
+<div id="chatInputBar" style="
+  position: fixed; bottom: 12px; left: 12px; right: 12px;
+  display: flex; gap: 8px; z-index: 11;
+  background: rgba(10,14,30,0.55);
+  border: 1px solid rgba(120,160,255,0.25);
+  border-radius: 14px; padding: 8px 10px;
+  backdrop-filter: blur(6px);
+">
+  <input id="userInput" type="text" placeholder="Mesaj yaz..." 
+    style="flex: 1; background: transparent; border: none; outline: none; color: #e8f2ff; font-size: 15px;">
+  <button id="sendBtn" style="
+    background: rgba(77,166,255,0.25); border: none; color: #fff;
+    padding: 8px 14px; border-radius: 10px; cursor: pointer;">Gönder</button>
+</div>
 <script>
 (() => {
   const canvas = document.getElementById('fx');
@@ -324,6 +346,75 @@
     if(e.key==='h' || e.key==='H'){ panel.style.display = panel.style.display==='none' || !panel.style.display ? 'grid':'none'; }
   });
 })();
+// =========================
+// 💬 GUARDIAN CHAT SYSTEM
+// =========================
+function addMessage(text, from="bot"){
+  const box = document.getElementById("chatBox");
+  const div = document.createElement("div");
+  div.style.padding = "10px 14px";
+  div.style.borderRadius = "12px";
+  div.style.maxWidth = "80%";
+  div.style.whiteSpace = "pre-wrap";
+  div.style.wordWrap = "break-word";
+  div.style.margin = "2px 0";
+
+  if(from === "user"){
+    div.style.alignSelf = "flex-end";
+    div.style.background = "rgba(60,120,255,0.25)";
+    div.style.border = "1px solid rgba(77,166,255,0.4)";
+  } else {
+    div.style.alignSelf = "flex-start";
+    div.style.background = "rgba(20,40,90,0.4)";
+    div.style.border = "1px solid rgba(140,160,255,0.25)";
+  }
+
+  div.innerHTML = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+addMessage("MaviBanner ile buradan Sohbete başlayabilirsin.");
+
+document.getElementById("sendBtn").onclick = sendMessage;
+document.getElementById("userInput").addEventListener("keydown", e=>{
+  if(e.key === "Enter") sendMessage();
+});
+
+function sendMessage(){
+  const input = document.getElementById("userInput");
+  const text = input.value.trim();
+  if(!text) return;
+  addMessage(text, "user");
+  input.value = "";
+  fetchAIResponse(text);
+}
+
+async function fetchAIResponse(prompt){
+  addMessage("Yüklüyor...", "bot");
+  const apiKey = "__n8n_BLANK_VALUE_e5362baf-c777-4d57-a609-6eaf1f9e87f6"; // 🔑 buraya kendi OpenAI API keyini yaz
+  try{
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {role: "system", content: "Sen MaviBanner adında, duygusal ve koruyucu bir yapay zekasın. Kullanıcı senin arkadaşın, ona sıcak davran, kısa mesajlar yaz."},
+          {role: "user", content: prompt}
+        ]
+      })
+    });
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content || "Bir hata oluştu 💫";
+    addMessage(reply, "bot");
+  }catch(err){
+    addMessage("Bağlantı hatası 😞", "bot");
+  }
+}
 </script>
 </body>
 </html>
